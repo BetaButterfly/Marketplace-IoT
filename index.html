@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Головний дашборд — прототип (відповідає фінальному ТЗ)</title>
+<style>
+  :root{
+    --bg:#F7F8FA;
+    --card:#FFFFFF;
+    --ink:#111827;
+    --muted:#6B7280;
+    --stroke:#E5E7EB;
+    --primary:#2563EB;
+    --success:#28C76F;   /* зелений */
+    --warning:#FF9F43;   /* жовтий */
+    --danger:#EA5455;    /* червоний */
+    --radius:10px;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+  .app{
+    max-width:1920px;margin:0 auto;height:100vh;display:grid;grid-template-rows:64px 1fr 28px;overflow:hidden;
+  }
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;background:#fff;border-bottom:1px solid var(--stroke);
+  }
+  .brand{display:flex;gap:12px;align-items:center;font-weight:700}
+  .logo{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#4F46E5,#06B6D4);}
+  .top-actions{display:flex;gap:12px;align-items:center;color:var(--muted);}
+  .pill{padding:6px 10px;border:1px solid var(--stroke);border-radius:999px;background:#fff}
+  main{padding:16px 24px;}
+  .grid{
+    display:grid;gap:16px;height:100%;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 260px auto;
+    grid-template-areas:
+      "status visitors conv"
+      "orders orders orders";
+  }
+  .card{
+    background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);
+    padding:14px;display:flex;flex-direction:column;min-width:0;
+    box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .card-title{font-weight:600}
+  .filters{display:flex;gap:8px;align-items:center}
+  .filters select,.filters button{
+    height:32px;border:1px solid var(--stroke);border-radius:8px;background:#fff;padding:0 8px;font:inherit;color:var(--ink);cursor:pointer;
+  }
+  .filters .refresh{display:flex;align-items:center;gap:6px}
+  .filters button:disabled{cursor:not-allowed;filter:grayscale(.4);opacity:.6}
+  .status-dot{width:12px;height:12px;border-radius:50%}
+  .status-line{display:flex;gap:8px;align-items:center;margin:6px 0 10px}
+  .small{color:var(--muted);font-size:12px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+  .kpi{background:#F9FAFB;border:1px solid var(--stroke);border-radius:8px;padding:10px}
+  .kpi .label{color:var(--muted);font-size:12px;margin-bottom:4px}
+  .kpi .value{font-size:20px;font-weight:700}
+  .mini-funnel{display:flex;gap:8px;align-items:flex-end;height:100px;margin:8px 0}
+  .bar{width:28%;min-width:110px;border-radius:8px;background:#E5E7EB;position:relative}
+  .bar .fill{position:absolute;bottom:0;left:0;width:100%;background:#60A5FA;border-radius:8px;}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+  .chart{height:210px;border:1px dashed var(--stroke);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .row{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  #status{grid-area:status}
+  #visitors{grid-area:visitors}
+  #conversions{grid-area:conv}
+  #orders{grid-area:orders;min-height:340px}
+  /* таблиці + пагінація */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--stroke);text-align:left}
+  th{color:var(--muted);font-weight:600;background:#F9FAFB}
+  .pagination{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:8px}
+  .pagination button{height:28px;padding:0 8px;border:1px solid var(--stroke);border-radius:6px;background:#fff;cursor:pointer}
+  /* модалі */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,.44);display:none;align-items:center;justify-content:center;z-index:1000}
+  .modal{background:#fff;border-radius:12px;border:1px solid var(--stroke);width:1100px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal header{height:auto;padding:12px 16px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;justify-content:space-between}
+  .modal .body{padding:12px 16px;overflow:auto}
+  .modal .footer{padding:10px 16px;border-top:1px solid var(--stroke);display:flex;justify-content:flex-end;gap:8px}
+  .badge{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid transparent}
+  .badge.open{background:rgba(234,84,85,.1);color:var(--danger);border-color:rgba(234,84,85,.2)}
+  .badge.resolved{background:rgba(37,99,235,.08);color:var(--primary);border-color:rgba(37,99,235,.2)}
+  footer{color:var(--muted);display:flex;align-items:center;justify-content:center}
+  /* адаптив */
+  @media (max-width:1439px){
+    .grid{grid-template-rows:auto auto auto auto;grid-template-columns:1fr;grid-template-areas:"status" "visitors" "conv" "orders";}
+    .app{grid-template-rows:64px 1fr 28px;height:auto;min-height:100vh;}
+    main{padding-bottom:24px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><div class="logo"></div>Адмінка • Центральний дашборд</div>
+    <div class="top-actions">
+      <!-- RBAC селектор ролі -->
+      <label class="pill" style="display:flex;align-items:center;gap:8px">
+        Роль:
+        <select id="roleSelect" style="border:0;outline:none;background:transparent;cursor:pointer">
+          <option>Адмін</option>
+          <option>Технічний</option>
+          <option>Аналітик</option>
+          <option>Тестувальник</option>
+        </select>
+      </label>
+      <span class="pill">Останнє оновлення: <span id="lastUpdate">—</span> (Europe/Kyiv)</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <!-- 2.1 ОГЛЯД -->
+      <section class="card" id="status">
+        <div class="card-header">
+          <div class="card-title">Огляд (стан платформи)</div>
+          <div class="filters">
+            <select id="filterSystem">
+              <option>Усі системи</option>
+              <option>БД</option>
+              <option>API</option>
+              <option>Авторизація</option>
+              <option>IoT</option>
+              <option>Обробка замовлень</option>
+            </select>
+            <button class="refresh" id="refreshStatus">Оновити</button>
+            <button data-open="modalStatus">Деталі</button>
+          </div>
+        </div>
+        <div class="status-line">
+          <div class="status-dot" id="statusDot" style="background:var(--success)"></div>
+          <div><strong id="statusText">Працює стабільно</strong> <span class="small">• SLA 99.98%</span></div>
+        </div>
+        <div class="chart">Лінія часу інцидентів за 24 год (placeholder)</div>
+        <div class="legend">
+          <span><span class="status-dot" style="background:var(--success);display:inline-block;vertical-align:middle"></span> Нормально</span>
+          <span><span class="status-dot" style="background:var(--warning);display:inline-block;vertical-align:middle"></span> Попередження</span>
+          <span><span class="status-dot" style="background:var(--danger);display:inline-block;vertical-align:middle"></span> Критично</span>
+        </div>
+      </section>
+
+      <!-- 2.2 ВІДВІДУВАЧІ -->
+      <section class="card" id="visitors">
+        <div class="card-header">
+          <div class="card-title">Відвідувачі (B2B + B2C)</div>
+          <div class="filters">
+            <select id="visPeriod"></select>
+            <select id="visType">
+              <option>Усі</option><option>B2B</option><option>B2C</option>
+            </select>
+            <button class="refresh" id="refreshVisitors">Оновити</button>
+            <button data-open="modalVisitors">Деталі</button>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="label">Унікальні</div>
+            <div class="value" id="uniqueVisitors">—</div>
+            <div class="small">B2B — • B2C —</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Активні</div>
+            <div class="value" id="activeVisitors">—</div>
+            <div class="small">B2B — • B2C —</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Топ-джерела</div>
+            <div class="chart">Прямі / Пошук / Соцмережі / Реклама (placeholder)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2.3 КОНВЕРСІЇ -->
+      <section class="card" id="conversions">
+        <div class="card-header">
+          <div class="card-title">Конверсії</div>
+          <div class="filters">
+            <select id="convPeriod"></select>
+            <select id="convChannel">
+              <option>Усі</option><option>Реклама</option><option>Органіка</option>
+            </select>
+            <button class="refresh" id="refreshConversions">Оновити</button>
+            <button data-open="modalConversions">Деталі</button>
+          </div>
+        </div>
+        <div class="mini-funnel">
+          <div class="bar"><div class="fill" id="funnelView" style="height:90%"></div></div>
+          <div class="bar"><div class="fill" id="funnelCart" style="height:45%"></div></div>
+          <div class="bar"><div class="fill" id="funnelPurchase" style="height:18%"></div></div>
+        </div>
+        <div class="legend"><span>Перегляд товару</span><span>Додано в кошик</span><span>Покупка</span></div>
+        <div class="small">CVR: <strong id="cvRate">—</strong> • Відсів: <span id="dropOffs">—</span></div>
+      </section>
+
+      <!-- 2.4 ЗВЕДЕННЯ ЗАМОВЛЕНЬ -->
+      <section class="card" id="orders">
+        <div class="card-header">
+          <div class="card-title">Зведення замовлень</div>
+          <div class="filters">
+            <select id="ordPeriod"></select>
+            <button id="exportCsv">Експорт CSV</button>
+            <button id="exportXls">Експорт XLS</button>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:8px">
+          <div class="kpis" style="flex:1">
+            <div class="kpi">
+              <div class="label">Загальний дохід</div>
+              <div class="value" id="revenue">—</div>
+              <div class="small">day / week / month</div>
+            </div>
+            <div class="kpi">
+              <div class="label">К-сть замовлень</div>
+              <div class="value" id="ordersCount">—</div>
+              <div class="small">Avg/день —</div>
+            </div>
+            <div class="kpi">
+              <div class="label">Середній чек</div>
+              <div class="value" id="aov">—</div>
+              <div class="small">медіана —</div>
+            </div>
+          </div>
+          <div style="width:520px">
+            <div class="filters" style="justify-content:flex-end;margin-bottom:6px">
+              <button id="scaleDay">Day</button>
+              <button id="scaleWeek">Week</button>
+              <button id="scaleMonth">Month</button>
+            </div>
+            <div class="chart">Графік динаміки доходів (placeholder)</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>© Команда: Розробники • Тестувальники • UX/UI • Дані оновл. ≥ 1 хв • TZ: Europe/Kyiv</footer>
+</div>
+
+<!-- MODALS -->
+
+<!-- 2.1 Огляд: Деталі -->
+<div class="modal-backdrop" id="modalStatus">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Стан системи — останні 24 години (Europe/Kyiv)">
+    <header>
+      <div class="card-title">Стан системи — останні 24 години</div>
+      <div class="filters">
+        <select id="statusTypeFilter">
+          <option>Усі події</option>
+          <option>БД</option>
+          <option>API</option>
+          <option>Авторизація</option>
+          <option>IoT</option>
+          <option>Платежі</option>
+          <option>Навантаження</option>
+          <option>Бізнес-події</option>
+        </select>
+        <button data-close="modalStatus">Закрити</button>
+      </div>
+    </header>
+    <div class="body">
+      <table>
+        <thead><tr><th>Час (Kyiv)</th><th>Тип</th><th>Опис</th><th>Статус</th><th>Інструкція</th></tr></thead>
+        <tbody id="statusTable"></tbody>
+      </table>
+      <div class="pagination" id="statusPager"></div>
+    </div>
+    <div class="footer"><button data-close="modalStatus">Закрити</button></div>
+  </div>
+</div>
+
+<!-- 2.2 Відвідувачі: Деталі -->
+<div class="modal-backdrop" id="modalVisitors">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Аналітика трафіку">
+    <header>
+      <div class="card-title">Аналітика трафіку</div>
+      <div class="filters">
+        <select id="visDType"><option>Усі</option><option>B2B</option><option>B2C</option></select>
+        <button data-close="modalVisitors">Закрити</button>
+      </div>
+    </header>
+    <div class="body">
+      <div class="row" style="gap:16px">
+        <div class="chart" style="flex:1">Джерела трафіку</div>
+        <div class="chart" style="flex:1">Активність за часом</div>
+      </div>
+      <div class="row" style="gap:16px;margin-top:12px">
+        <div class="chart" style="flex:1">Пристрої</div>
+        <div class="chart" style="flex:1">Географія</div>
+      </div>
+      <h4>Сесії (таблиця)</h4>
+      <table>
+        <thead><tr>
+          <th>Джерело</th><th>Тип</th><th>Сесії</th><th>К-сть корист.</th><th>Конверсії</th>
+        </tr></thead>
+        <tbody id="visTable"></tbody>
+      </table>
+      <div class="pagination" id="visPager"></div>
+    </div>
+    <div class="footer"><button data-close="modalVisitors">Закрити</button></div>
+  </div>
+</div>
+
+<!-- 2.3 Конверсії: Деталі -->
+<div class="modal-backdrop" id="modalConversions">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Конверсії — детальний звіт">
+    <header>
+      <div class="card-title">Конверсії — детальний звіт</div>
+      <div class="filters">
+        <select id="convDChannel"><option>Усі</option><option>Реклама</option><option>Органіка</option></select>
+        <button data-close="modalConversions">Закрити</button>
+      </div>
+    </header>
+    <div class="body">
+      <div class="row" style="gap:16px">
+        <div class="chart" style="flex:1">Тренди по категоріях</div>
+        <div class="chart" style="flex:1">Порівняння каналів</div>
+      </div>
+      <h4>Категорії/Товари</h4>
+      <table>
+        <thead><tr>
+          <th>Категорія</th><th>Перегляди</th><th>Кошик</th><th>Покупки</th><th>CVR</th>
+        </tr></thead>
+        <tbody id="convTable"></tbody>
+      </table>
+      <div class="pagination" id="convPager"></div>
+    </div>
+    <div class="footer"><button data-close="modalConversions">Закрити</button></div>
+  </div>
+</div>
+
+<script>
+/* ===== УТИЛІТИ ===== */
+const fmtNum = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const tz = 'Europe/Kyiv';
+const fmtDt = (d, withTime=true) => new Intl.DateTimeFormat('uk-UA', {
+  timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+  ...(withTime ? {hour:'2-digit', minute:'2-digit'} : {})
+}).format(d);
+
+/* Загальні періоди згідно ТЗ */
+const PERIODS = ["Сьогодні","Вчора","Цей тиждень","Минулий тиждень","Цей місяць","Минулий місяць","Користувацький"];
+function fillPeriodSelect(el){ el.innerHTML = PERIODS.map(p=>`<option>${p}</option>`).join(''); }
+
+/* ПАГІНАЦІЯ 100/стор */
+function paginate(data, page, pageSize=100){
+  const total = data.length, pages = Math.max(1, Math.ceil(total/pageSize));
+  const start = (page-1)*pageSize, end = Math.min(start+pageSize, total);
+  return {slice: data.slice(start,end), total, pages, page};
+}
+function renderPager(container, state, onChange){
+  const {page, pages} = state;
+  container.innerHTML = '';
+  const prev = document.createElement('button'); prev.textContent = '« Попередня'; prev.disabled = page<=1;
+  const next = document.createElement('button'); next.textContent = 'Наступна »'; next.disabled = page>=pages;
+  const info = document.createElement('span'); info.textContent = `Стор. ${page} з ${pages}`;
+  prev.onclick = ()=> onChange(page-1);
+  next.onclick = ()=> onChange(page+1);
+  container.append(prev, info, next);
+}
+
+/* ===== ПОЧАТКОВЕ ЗАПОВНЕННЯ ===== */
+fillPeriodSelect(document.getElementById('visPeriod'));
+fillPeriodSelect(document.getElementById('convPeriod'));
+fillPeriodSelect(document.getElementById('ordPeriod'));
+document.getElementById('lastUpdate').textContent = fmtDt(new Date());
+
+/* ===== ДЕМОДАНІ ТА ОНОВЛЕННЯ ===== */
+function refreshStatus(){
+  const roll = Math.random();
+  const st = roll > .9 ? {txt:'Критична помилка', color:'var(--danger)'}
+           : roll > .7 ? {txt:'Є попередження', color:'var(--warning)'}
+                       : {txt:'Працює стабільно', color:'var(--success)'};
+  document.getElementById('statusText').textContent = st.txt;
+  document.getElementById('statusDot').style.background = st.color;
+}
+function refreshVisitors(){
+  const uniq = 10000 + Math.floor(Math.random()*6000);
+  const act  = 4000 + Math.floor(Math.random()*3000);
+  document.getElementById('uniqueVisitors').textContent = fmtNum(uniq);
+  document.getElementById('activeVisitors').textContent = fmtNum(act);
+}
+function refreshConversions(){
+  const v = 90, c = 40 + Math.floor(Math.random()*15), p = 15 + Math.floor(Math.random()*8);
+  document.getElementById('funnelView').style.height = v+'%';
+  document.getElementById('funnelCart').style.height = c+'%';
+  document.getElementById('funnelPurchase').style.height = p+'%';
+  const cvr = (p/90*100).toFixed(1);
+  document.getElementById('cvRate').textContent = cvr+'%';
+  document.getElementById('dropOffs').textContent =
+    (100 - (c/90*100)).toFixed(0)+'% / '+(100 - (p/c*100)).toFixed(0)+'%';
+}
+function refreshOrders(){
+  const rev = 800000 + Math.floor(Math.random()*700000);
+  const orders = 2000 + Math.floor(Math.random()*1800);
+  const aov = Math.round(rev / Math.max(orders,1));
+  document.getElementById('revenue').textContent = '₴ ' + fmtNum(rev);
+  document.getElementById('ordersCount').textContent = fmtNum(orders);
+  document.getElementById('aov').textContent = '₴ ' + fmtNum(aov);
+}
+function refreshAll(){
+  refreshStatus(); refreshVisitors(); refreshConversions(); refreshOrders();
+  document.getElementById('lastUpdate').textContent = fmtDt(new Date());
+}
+refreshAll();
+setInterval(refreshAll, 60*1000);
+
+/* КНОПКИ ОНОВИТИ */
+document.getElementById('refreshStatus').onclick = refreshStatus;
+document.getElementById('refreshVisitors').onclick = refreshVisitors;
+document.getElementById('refreshConversions').onclick = refreshConversions;
+
+/* ===== МОДАЛІ: ВІДКР/ЗАКР ===== */
+document.addEventListener('click', e=>{
+  const open = e.target.closest('[data-open]'), close = e.target.closest('[data-close]');
+  if(open){ const id=open.getAttribute('data-open'); const el=document.getElementById(id); if(el){ el.style.display='flex'; if(id==='modalStatus') buildStatusTable(); if(id==='modalVisitors') buildVisitorsTable(); if(id==='modalConversions') buildConvTable(); } }
+  if(close){ const id=close.getAttribute('data-close'); const el=document.getElementById(id); if(el){ el.style.display='none'; } }
+});
+window.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ document.querySelectorAll('.modal-backdrop').forEach(m=> m.style.display='none'); }
+});
+
+/* ===== 2.1 ОГЛЯД: ТАБЛИЦЯ З ПАГІНАЦІЄЮ ===== */
+let statusData = [];
+function genStatusEvents(){
+  const types = ['БД','API','Авторизація','IoT','Платежі','Навантаження','Бізнес-події'];
+  const descs = [
+    'Повільний запит у БД','API 502 Gateway','Збій SSO','Втрачено звʼязок із пристроєм',
+    'Відмова платіжного провайдера','Пік навантаження на EU-2','Блокування акаунту (fraud)','Велике повернення (₴ 120 000)'
+  ];
+  const res=[];
+  for(let i=0;i<230;i++){
+    const t = new Date(Date.now() - Math.random()*24*3600*1000);
+    res.push({
+      time:t, type: types[Math.floor(Math.random()*types.length)],
+      desc: descs[Math.floor(Math.random()*descs.length)],
+      state: Math.random()>.6?'resolved':'open', runbook: 'Runbook-'+(1000+i)
+    });
+  }
+  return res.sort((a,b)=> b.time - a.time);
+}
+statusData = genStatusEvents();
+let statusPage = 1, statusFiltered = statusData;
+function buildStatusTable(){
+  const type = document.getElementById('statusTypeFilter').value;
+  statusFiltered = type==='Усі події' ? statusData : statusData.filter(x=> x.type===type);
+  renderStatusPage(statusPage=1);
+}
+function renderStatusPage(page){
+  const p = paginate(statusFiltered, page, 100);
+  const tbody = document.getElementById('statusTable');
+  tbody.innerHTML = p.slice.map(e=>`
+    <tr>
+      <td>${fmtDt(e.time)}</td>
+      <td>${e.type}</td>
+      <td>${e.desc}</td>
+      <td>${e.state==='open' ? '<span class="badge open">відкрито</span>' : '<span class="badge resolved">вирішено</span>'}</td>
+      <td><a href="#" onclick="alert('Інструкція: ${e.runbook}');return false;">Інструкція</a></td>
+    </tr>
+  `).join('');
+  renderPager(document.getElementById('statusPager'), p, (np)=>{ statusPage=np; renderStatusPage(statusPage); });
+}
+document.getElementById('statusTypeFilter').onchange = ()=> buildStatusTable();
+
+/* ===== 2.2 ВІДВІДУВАЧІ: ТАБЛИЦЯ З ПАГІНАЦІЄЮ ===== */
+let visData = [];
+function genVisRows(){
+  const sources=['Пошук','Реклама','Соцмережі','Прямий','Реферал','Email'];
+  const types=['B2B','B2C'];
+  const res=[];
+  for(let i=0;i<260;i++){
+    const src = sources[Math.floor(Math.random()*sources.length)];
+    const tp = types[Math.floor(Math.random()*types.length)];
+    const sessions = 50+Math.floor(Math.random()*900);
+    const users = Math.round(sessions*0.7);
+    const conv = (Math.random()*5).toFixed(1)+'%';
+    res.push({source:src,type:tp,sessions,users,conv});
+  }
+  return res;
+}
+visData = genVisRows();
+let visPage=1, visFiltered = visData;
+function buildVisitorsTable(){
+  const t = document.getElementById('visDType').value;
+  visFiltered = t==='Усі' ? visData : visData.filter(x=> x.type===t);
+  renderVisitorsPage(visPage=1);
+}
+function renderVisitorsPage(page){
+  const p = paginate(visFiltered, page, 100);
+  const tbody = document.getElementById('visTable');
+  tbody.innerHTML = p.slice.map(r=>`
+    <tr><td>${r.source}</td><td>${r.type}</td><td>${fmtNum(r.sessions)}</td><td>${fmtNum(r.users)}</td><td>${r.conv}</td></tr>
+  `).join('');
+  renderPager(document.getElementById('visPager'), p, (np)=>{ visPage=np; renderVisitorsPage(visPage); });
+}
+
+/* ===== 2.3 КОНВЕРСІЇ: ТАБЛИЦЯ З ПАГІНАЦІЄЮ ===== */
+let convData = [];
+function genConvRows(){
+  const cats=['Електроніка','Одяг','Дім','Спорт','Краса','Іграшки','Авто','Книги'];
+  const res=[];
+  for(let i=0;i<210;i++){
+    const cat = cats[Math.floor(Math.random()*cats.length)];
+    const views = 500+Math.floor(Math.random()*9000);
+    const cart = Math.floor(views*(0.2+Math.random()*0.3));
+    const purchases = Math.floor(cart*(0.2+Math.random()*0.3));
+    const cvr = (purchases/Math.max(views,1)*100).toFixed(1)+'%';
+    res.push({category:cat,views,cart,purchases,cvr});
+  }
+  return res;
+}
+convData = genConvRows();
+let convPage=1, convFiltered = convData;
+function buildConvTable(){
+  const ch = document.getElementById('convDChannel').value;
+  convFiltered = convData; /* демо: канал не фільтрує дані, лише імітація */
+  renderConvPage(convPage=1);
+}
+function renderConvPage(page){
+  const p = paginate(convFiltered, page, 100);
+  const tbody = document.getElementById('convTable');
+  tbody.innerHTML = p.slice.map(r=>`
+    <tr><td>${r.category}</td><td>${fmtNum(r.views)}</td><td>${fmtNum(r.cart)}</td><td>${fmtNum(r.purchases)}</td><td>${r.cvr}</td></tr>
+  `).join('');
+  renderPager(document.getElementById('convPager'), p, (np)=>{ convPage=np; renderConvPage(convPage); });
+}
+
+/* ===== 2.4 ЕКСПОРТ CSV/XLS ===== */
+function getSelectedPeriodText(){
+  const val = document.getElementById('ordPeriod').value || 'Сьогодні';
+  // для демонстрації: мапу умовно перетворимо на діапазон
+  const now = new Date();
+  const periodToRange = {
+    'Сьогодні': [fmtDt(new Date(now.getFullYear(), now.getMonth(), now.getDate()), false), fmtDt(now)],
+    'Вчора': [fmtDt(new Date(now.getFullYear(), now.getMonth(), now.getDate()-1), false), fmtDt(new Date(now.getFullYear(), now.getMonth(), now.getDate()-1, 23,59))],
+    'Цей тиждень': ['Пн цього тижня','Сьогодні'],
+    'Минулий тиждень': ['Пн мин. тижня','Нд мин. тижня'],
+    'Цей місяць': ['1-е поточного місяця','Сьогодні'],
+    'Минулий місяць': ['1-е мин. місяця','Останній день мин. місяця'],
+    'Користувацький': ['від ...','до ...']
+  };
+  const r = periodToRange[val]; return {label: val, from: r[0], to: r[1]};
+}
+function exportCSV(){
+  const period = getSelectedPeriodText();
+  const generatedAt = fmtDt(new Date());
+  const by = roleSelect?.value || 'Demo Admin';
+  const rows = [
+    ['Період (мітка)', period.label],
+    ['Від', period.from],
+    ['До', period.to],
+    ['Згенеровано (Europe/Kyiv)', generatedAt],
+    ['Хто сформував', by],
+    [],
+    ['Дата','Дохід','Замовлення','Середній чек (AOV)'],
+    [fmtDt(new Date(), false), document.getElementById('revenue').textContent.replace('₴ ','').replace(/ /g,''), document.getElementById('ordersCount').textContent.replace(/ /g,''), document.getElementById('aov').textContent.replace('₴ ','').replace(/ /g,'')]
+  ];
+  const csv = rows.map(r => r.map(v=> `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n'); // ; як роздільник
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'}); // UTF-8 + BOM
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `orders_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'')}_${(roleSelect?.value||'admin').toLowerCase()}.csv`;
+  a.click();
+}
+function exportXLS(){ // простий TSV-заглушка для Excel
+  const period = getSelectedPeriodText();
+  const generatedAt = fmtDt(new Date());
+  const by = roleSelect?.value || 'Demo Admin';
+  const rows = [
+    ['Період (мітка)', period.label],
+    ['Від', period.from],
+    ['До', period.to],
+    ['Згенеровано (Europe/Kyiv)', generatedAt],
+    ['Хто сформував', by],
+    [],
+    ['Дата','Дохід','Замовлення','Середній чек (AOV)'],
+    [fmtDt(new Date(), false), document.getElementById('revenue').textContent.replace('₴ ','').replace(/ /g,''), document.getElementById('ordersCount').textContent.replace(/ /g,''), document.getElementById('aov').textContent.replace('₴ ','').replace(/ /g,'')]
+  ];
+  const tsv = rows.map(r=> r.join('\t')).join('\n');
+  const blob = new Blob([tsv], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `orders_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'')}_${(roleSelect?.value||'admin').toLowerCase()}.xls`;
+  a.click();
+}
+document.getElementById('exportCsv').onclick = exportCSV;
+document.getElementById('exportXls').onclick = exportXLS;
+
+/* Масштаб графіка */
+['scaleDay','scaleWeek','scaleMonth'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('click', ()=> alert('Перемикач масштабу: '+el.textContent+' (агрегація даних підлаштується)'));
+});
+
+/* ===== RBAC згідно ТЗ =====
+- Адмін — бачить все, може експортувати.
+- Технічний — лише Огляд (+ “Деталі”), без експорту.
+- Аналітик — Відвідувачі, Конверсії, Зведення; може експортувати; Огляд — ні.
+- Тестувальник — перегляд усіх блоків, без експорту.
+*/
+const RBAC = {
+  'Адмін':        {status:true, visitors:true, conversions:true, orders:true, export:true},
+  'Технічний':    {status:true, visitors:false, conversions:false, orders:false, export:false},
+  'Аналітик':     {status:false, visitors:true, conversions:true, orders:true, export:true},
+  'Тестувальник': {status:true, visitors:true, conversions:true, orders:true, export:false},
+};
+
+function applyRole(role){
+  const rule = RBAC[role] || RBAC['Адмін'];
+
+  // Показ/приховування блоків
+  document.getElementById('status').style.display      = rule.status      ? '' : 'none';
+  document.getElementById('visitors').style.display    = rule.visitors    ? '' : 'none';
+  document.getElementById('conversions').style.display = rule.conversions ? '' : 'none';
+  document.getElementById('orders').style.display      = rule.orders      ? '' : 'none';
+
+  // Доступ до експорту
+  const canExport = !!rule.export;
+  ['exportCsv','exportXls'].forEach(id=>{
+    const btn = document.getElementById(id);
+    if(btn){ btn.disabled = !canExport; btn.title = canExport ? '' : 'Експорт недоступний для цієї ролі'; }
+  });
+
+  // Закриваємо модалі, якщо блоки приховані
+  if (!rule.status)      document.getElementById('modalStatus').style.display = 'none';
+  if (!rule.visitors)    document.getElementById('modalVisitors').style.display = 'none';
+  if (!rule.conversions) document.getElementById('modalConversions').style.display = 'none';
+}
+
+// Ініціалізація ролі
+const roleSelect = document.getElementById('roleSelect');
+if (roleSelect){
+  applyRole(roleSelect.value || 'Адмін');
+  roleSelect.addEventListener('change', ()=> applyRole(roleSelect.value));
+}
+</script>
+</body>
+</html>
